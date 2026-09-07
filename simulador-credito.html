@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>simulador-credito</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+  #sfb-frame { display: none; width: 100%; height: 100%; border: 0; }
+  #sfb-loading {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; gap: 14px; flex-direction: column;
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #666; background: #fafafa;
+  }
+  @media (prefers-color-scheme: dark) {
+    #sfb-loading { background: #16181c; color: #9aa4b2; }
+  }
+  .sfb-spinner {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 3px solid rgba(128,128,128,.25); border-top-color: currentColor;
+    animation: sfb-spin .8s linear infinite;
+  }
+  @keyframes sfb-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .sfb-spinner { animation-duration: 3s; } }
+  .sfb-err {
+    max-width: 44rem; padding: 1.5rem; text-align: left;
+    font: 14px/1.6 system-ui, sans-serif; color: #b3261e;
+  }
+  .sfb-err pre {
+    white-space: pre-wrap; background: rgba(128,128,128,.12);
+    padding: .75rem; border-radius: 6px; font-size: 12px;
+  }
+
+  #sfb-keyform {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; gap: 4px; padding: 1.5rem;
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #fafafa; color: #1a1c20; text-align: center;
+  }
+  #sfb-keyform .sfb-lock { font-size: 34px; margin-bottom: 6px; }
+  #sfb-keyform h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  #sfb-keyform p { margin: 2px 0 0; color: #6b7280; font-size: 13px; }
+  #sfb-key {
+    width: min(100%, 22rem); margin-top: 18px; padding: 11px 13px;
+    font: 14px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: inherit; background: #fff;
+    border: 1px solid #d3d7de; border-radius: 8px;
+  }
+  #sfb-key:focus {
+    outline: none; border-color: #6b7cff;
+    box-shadow: 0 0 0 3px rgba(107,124,255,.25);
+  }
+  #sfb-unlock {
+    width: min(100%, 22rem); margin-top: 9px; padding: 11px 13px;
+    font: 600 14px/1 system-ui, sans-serif; color: #fff;
+    background: #3b4ce0; border: 0; border-radius: 8px; cursor: pointer;
+  }
+  #sfb-unlock:hover:not(:disabled) { background: #3242c8; }
+  #sfb-unlock:disabled { opacity: .6; cursor: default; }
+  #sfb-keyerror {
+    visibility: hidden; margin-top: 12px; min-height: 1.2em;
+    color: #c0392b; font-size: 13px;
+  }
+  @media (prefers-color-scheme: dark) {
+    #sfb-keyform { background: #16181c; color: #e6e9ef; }
+    #sfb-keyform p { color: #98a2b3; }
+    #sfb-key { background: #1e2127; border-color: #333a45; }
+    #sfb-keyerror { color: #ff8a80; }
+  }
+</style>
+</head>
+<body>
+<div id="sfb-status"><div id="sfb-loading"><div class="sfb-spinner"></div><p>Unpacking&hellip;</p></div></div>
+<form id="sfb-keyform" autocomplete="off">
+  <div class="sfb-lock" aria-hidden="true">&#128274;</div>
+  <h1>This page is encrypted</h1>
+  <p>Enter the key you were given to unlock it.</p>
+  <input id="sfb-key" type="password" spellcheck="false" autocapitalize="off"
+         autocorrect="off" aria-label="Decryption key" placeholder="Decryption key">
+  <button id="sfb-unlock" type="submit">Unlock</button>
+  <p id="sfb-keyerror" role="alert"></p>
+</form>
+<iframe id="sfb-frame" title="simulador-credito"></iframe>
+<script>
+(function SFB_RUNTIME(PAYLOAD_B64, ENTRY_PATH, ENCRYPTED) {
+  var statusEl = document.getElementById('sfb-status');
+
+  function fail(message, detail) {
+    var form = document.getElementById('sfb-keyform');
+    if (form) form.style.display = 'none';
+    if (statusEl) {
+      statusEl.innerHTML =
+        '<div class="sfb-err"><strong>Could not start the bundled app</strong>' +
+        '<p>' + String(message) + '</p>' +
+        (detail ? '<pre>' + String(detail) + '</pre>' : '') +
+        '</div>';
+    }
+    console.error('[bundler] ' + message, detail || '');
+  }
+
+  var MIME = {
+    html: 'text/html', htm: 'text/html', css: 'text/css',
+    js: 'text/javascript', mjs: 'text/javascript', json: 'application/json',
+    map: 'application/json', txt: 'text/plain', csv: 'text/csv',
+    xml: 'application/xml', svg: 'image/svg+xml', ico: 'image/x-icon',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp',
+    woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+    eot: 'application/vnd.ms-fontobject',
+    mp4: 'video/mp4', webm: 'video/webm', ogg: 'audio/ogg', mp3: 'audio/mpeg',
+    wav: 'audio/wav', pdf: 'application/pdf', wasm: 'application/wasm',
+  };
+
+  function mimeFor(p) {
+    var ext = p.split('.').pop().toLowerCase();
+    return MIME[ext] || 'application/octet-stream';
+  }
+
+  // Normalize a URL reference into a bundle key: strip query/hash, resolve
+  // "." and "..", drop any leading slash.
+  function normalize(ref, baseDir) {
+    if (!ref) return null;
+    var s = String(ref).trim().replace(/[?#].*$/, '');
+    if (!s) return null;
+    // Anything with a scheme, or a protocol-relative URL, is external.
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(s) || s.indexOf('//') === 0) return null;
+
+    var absolute = s.charAt(0) === '/';
+    var parts = (absolute || !baseDir ? s : baseDir + '/' + s).split('/');
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var seg = parts[i];
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') out.pop();
+      else out.push(seg);
+    }
+    return out.join('/');
+  }
+
+  function dirOf(p) {
+    var i = p.lastIndexOf('/');
+    return i === -1 ? '' : p.slice(0, i);
+  }
+
+  function start(files) {
+    // ---- file table -------------------------------------------------------
+    var byPath = {};   // exact bundle path -> record
+    var bySuffix = {}; // "a/b.json" and "b.json" -> record (ambiguous ones nulled)
+
+    function addSuffix(key, rec) {
+      if (Object.prototype.hasOwnProperty.call(bySuffix, key) && bySuffix[key] !== rec) {
+        bySuffix[key] = null; // ambiguous: refuse to guess
+      } else {
+        bySuffix[key] = rec;
+      }
+    }
+
+    for (var i = 0; i < files.length; i++) {
+      var rec = files[i];
+      rec.mime = mimeFor(rec.path);
+      rec.blobUrl = null;
+      byPath[rec.path] = rec;
+
+      var segs = rec.path.split('/');
+      for (var n = 1; n <= Math.min(segs.length, 3); n++) {
+        addSuffix(segs.slice(segs.length - n).join('/'), rec);
+      }
+    }
+
+    // Resolve a reference to a bundled file, or null if it isn't ours.
+    function lookup(ref, baseDir) {
+      var key = normalize(ref, baseDir);
+      if (!key) return null;
+      if (byPath[key]) return byPath[key];
+      // Fall back to suffix matching. Projects are commonly bundled from a
+      // parent directory, so "data/x.json" may live at "docs/data/x.json".
+      if (bySuffix[key]) return bySuffix[key];
+      var base = key.split('/').pop();
+      if (bySuffix[base]) return bySuffix[base];
+      return null;
+    }
+
+    function blobUrlFor(rec) {
+      if (!rec.blobUrl) {
+        rec.blobUrl = URL.createObjectURL(new Blob([rec.bytes], { type: rec.mime }));
+      }
+      return rec.blobUrl;
+    }
+
+    function textOf(rec) {
+      return new TextDecoder('utf-8').decode(rec.bytes);
+    }
+
+    // ---- rewrite static references ---------------------------------------
+    // Runtime patching (below) cannot see markup the parser handles itself, so
+    // src/href/srcset/url() are rewritten to blob: URLs before injection.
+
+    function rewriteCss(css, baseDir) {
+      return css.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, function (match, quote, ref) {
+        var hit = lookup(ref, baseDir);
+        return hit ? 'url(' + quote + blobUrlFor(hit) + quote + ')' : match;
+      });
+    }
+
+    function rewriteSrcset(value, baseDir) {
+      return value.split(',').map(function (candidate) {
+        var bits = candidate.trim().split(/\s+/);
+        var hit = lookup(bits[0], baseDir);
+        if (hit) bits[0] = blobUrlFor(hit);
+        return bits.join(' ');
+      }).join(', ');
+    }
+
+    function rewriteHtml(html, baseDir) {
+      // Attributes that name a resource.
+      html = html.replace(
+        /\b(src|href|poster|data)\s*=\s*(["'])([^"']*)\2/gi,
+        function (match, attr, quote, ref) {
+          var hit = lookup(ref, baseDir);
+          return hit ? attr + '=' + quote + blobUrlFor(hit) + quote : match;
+        }
+      );
+
+      html = html.replace(/\bsrcset\s*=\s*(["'])([^"']*)\1/gi, function (match, quote, value) {
+        return 'srcset=' + quote + rewriteSrcset(value, baseDir) + quote;
+      });
+
+      // <style> blocks and style="" attributes.
+      html = html.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, function (match, body) {
+        return match.replace(body, rewriteCss(body, baseDir));
+      });
+      html = html.replace(/\bstyle\s*=\s*(["'])([^"']*)\1/gi, function (match, quote, body) {
+        return 'style=' + quote + rewriteCss(body, baseDir) + quote;
+      });
+
+      return html;
+    }
+
+    // CSS files are rewritten in place so their own url() references resolve
+    // before they are turned into blobs.
+    for (var j = 0; j < files.length; j++) {
+      if (/\.css$/i.test(files[j].path)) {
+        var css = rewriteCss(textOf(files[j]), dirOf(files[j].path));
+        files[j].bytes = new TextEncoder().encode(css);
+      }
+    }
+
+    // ---- ES module graph --------------------------------------------------
+    // A module served from a blob: URL cannot resolve `import './lib.js'` —
+    // blob: is not a hierarchical scheme, so the relative specifier throws.
+    // The fix is to rewrite each specifier to the imported file's own blob URL.
+    // That requires the dependency's blob to exist first, so modules are
+    // processed depth-first: leaves get blobs, then their importers.
+    var IMPORT_RE = /(\bfrom\s*|\bimport\s*\(?\s*)(['"])([^'"\n]+)\2/g;
+    var isModule = function (rec) { return /\.(m?js)$/i.test(rec.path); };
+    var moduleState = {}; // path -> 'active' | 'done'
+    var cycles = [];
+
+    function linkModule(rec) {
+      if (moduleState[rec.path] === 'done') return;
+      if (moduleState[rec.path] === 'active') { cycles.push(rec.path); return; }
+      moduleState[rec.path] = 'active';
+
+      var dir = dirOf(rec.path);
+      var text = textOf(rec);
+
+      // Dependencies first, so blobUrlFor below returns a linked module.
+      text.replace(IMPORT_RE, function (match, keyword, quote, specifier) {
+        var dep = lookup(specifier, dir);
+        if (dep && isModule(dep)) linkModule(dep);
+        return match;
+      });
+
+      var linked = text.replace(IMPORT_RE, function (match, keyword, quote, specifier) {
+        var dep = lookup(specifier, dir);
+        // Only rewrite what we actually carry; bare specifiers such as
+        // 'react' are left for the import map or the network to resolve.
+        return dep ? keyword + quote + blobUrlFor(dep) + quote : match;
+      });
+
+      if (linked !== text) rec.bytes = new TextEncoder().encode(linked);
+      moduleState[rec.path] = 'done';
+    }
+
+    for (var k = 0; k < files.length; k++) {
+      if (isModule(files[k])) linkModule(files[k]);
+    }
+    if (cycles.length) {
+      console.warn(
+        '[bundler] circular imports involving ' + cycles.join(', ') +
+        ' — these modules may fail to load.'
+      );
+    }
+
+    // ---- expose to the iframe --------------------------------------------
+    // The iframe is same-origin (about:blank), so its shim reaches this
+    // directly. Bytes are handed over without copying.
+    window.__SFB__ = {
+      lookup: lookup,
+      blobUrl: blobUrlFor,
+      rewriteMarkup: rewriteHtml,
+      mimeFor: mimeFor,
+      normalize: normalize,
+      list: function () { return Object.keys(byPath); },
+      read: function (p) { var r = lookup(p, ''); return r ? r.bytes : null; },
+    };
+
+    // ---- boot the entry document -----------------------------------------
+    var entry = byPath[ENTRY_PATH] || lookup(ENTRY_PATH, '');
+    if (!entry) return fail('Entry file missing from the bundle: ' + ENTRY_PATH);
+
+    var baseDir = dirOf(entry.path);
+    var doc = rewriteHtml(textOf(entry), baseDir);
+
+    // The shim must run before any app script, so it is injected at the very
+    // top of <head> (or the top of the document if there is no <head>).
+    var shim =
+      '<script>(' + SFB_SHIM.toString() + ')(' + JSON.stringify(baseDir) + ');<\/script>';
+
+    if (/<head\b[^>]*>/i.test(doc)) {
+      doc = doc.replace(/<head\b[^>]*>/i, function (m) { return m + shim; });
+    } else if (/<html\b[^>]*>/i.test(doc)) {
+      doc = doc.replace(/<html\b[^>]*>/i, function (m) { return m + shim; });
+    } else {
+      doc = shim + doc;
+    }
+
+    var frame = document.getElementById('sfb-frame');
+    // about:blank inherits this page's origin, so history.pushState,
+    // localStorage, cookies and same-origin XHR all behave normally.
+    // (srcdoc gives an opaque origin and breaks all of them.)
+    var idoc = frame.contentDocument;
+    idoc.open();
+    idoc.write(doc);
+    idoc.close();
+
+    document.getElementById('sfb-loading').style.display = 'none';
+    frame.style.display = 'block';
+  }
+
+  // Runs inside the iframe. Intercepts requests the markup rewriter cannot see:
+  // fetch(), XMLHttpRequest, and dynamically assigned element sources.
+  function SFB_SHIM(BASE_DIR) {
+    var FS = null;
+    try { FS = parent.__SFB__; } catch (e) { /* cross-origin: leave unpatched */ }
+    if (!FS) return;
+
+    var nativeFetch = window.fetch;
+    window.fetch = function (input, init) {
+      var url = typeof input === 'string' ? input : (input && input.url);
+      var hit = null;
+      try { hit = FS.lookup(url, BASE_DIR); } catch (e) {}
+      if (hit) {
+        return Promise.resolve(new Response(hit.bytes.slice(), {
+          status: 200,
+          statusText: 'OK',
+          headers: { 'Content-Type': hit.mime, 'Content-Length': String(hit.bytes.length) },
+        }));
+      }
+      return nativeFetch.apply(this, arguments);
+    };
+
+    var NativeXHR = window.XMLHttpRequest;
+    function PatchedXHR() {
+      var xhr = new NativeXHR();
+      var pending = null;
+
+      var nativeOpen = xhr.open;
+      xhr.open = function (method, url) {
+        try { pending = FS.lookup(url, BASE_DIR); } catch (e) { pending = null; }
+        if (pending) { this.__sfbUrl = url; return; }
+        return nativeOpen.apply(xhr, arguments);
+      };
+
+      var nativeSend = xhr.send;
+      xhr.send = function () {
+        if (!pending) return nativeSend.apply(xhr, arguments);
+        var hit = pending;
+        setTimeout(function () {
+          var text = new TextDecoder('utf-8').decode(hit.bytes);
+          var body = xhr.responseType === 'arraybuffer' ? hit.bytes.buffer
+                   : xhr.responseType === 'blob' ? new Blob([hit.bytes], { type: hit.mime })
+                   : xhr.responseType === 'json' ? JSON.parse(text)
+                   : text;
+          try {
+            Object.defineProperty(xhr, 'readyState', { value: 4, configurable: true });
+            Object.defineProperty(xhr, 'status', { value: 200, configurable: true });
+            Object.defineProperty(xhr, 'statusText', { value: 'OK', configurable: true });
+            Object.defineProperty(xhr, 'responseText', { value: text, configurable: true });
+            Object.defineProperty(xhr, 'response', { value: body, configurable: true });
+          } catch (e) { /* some engines lock these down; events still fire */ }
+          if (typeof xhr.onreadystatechange === 'function') xhr.onreadystatechange();
+          xhr.dispatchEvent(new Event('readystatechange'));
+          xhr.dispatchEvent(new Event('load'));
+          xhr.dispatchEvent(new Event('loadend'));
+        }, 0);
+      };
+
+      return xhr;
+    }
+    PatchedXHR.prototype = NativeXHR.prototype;
+    PatchedXHR.UNSENT = 0; PatchedXHR.OPENED = 1; PatchedXHR.HEADERS_RECEIVED = 2;
+    PatchedXHR.LOADING = 3; PatchedXHR.DONE = 4;
+    window.XMLHttpRequest = PatchedXHR;
+
+    function swap(value) {
+      var hit = null;
+      try { hit = FS.lookup(value, BASE_DIR); } catch (e) {}
+      return hit ? FS.blobUrl(hit) : value;
+    }
+
+    // Elements whose source is assigned as a property (img.src = "...").
+    [[window.HTMLImageElement, 'src'], [window.HTMLScriptElement, 'src'],
+     [window.HTMLLinkElement, 'href'], [window.HTMLSourceElement, 'src'],
+     [window.HTMLMediaElement, 'src'], [window.HTMLIFrameElement, 'src'],
+     [window.HTMLObjectElement, 'data'], [window.HTMLTrackElement, 'src']]
+      .forEach(function (pair) {
+        var ctor = pair[0], prop = pair[1];
+        if (!ctor) return;
+        var descriptor = Object.getOwnPropertyDescriptor(ctor.prototype, prop);
+        if (!descriptor || !descriptor.set) return;
+        Object.defineProperty(ctor.prototype, prop, {
+          configurable: true,
+          enumerable: descriptor.enumerable,
+          get: descriptor.get,
+          set: function (value) { descriptor.set.call(this, swap(value)); },
+        });
+      });
+
+    // ...and as an attribute (el.setAttribute('src', '...')).
+    var SRC_ATTRS = { src: 1, href: 1, poster: 1, data: 1 };
+    var nativeSetAttribute = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function (name, value) {
+      if (SRC_ATTRS[String(name).toLowerCase()]) value = swap(value);
+      return nativeSetAttribute.call(this, name, value);
+    };
+
+    // Markup built as a string. This is the common case for template-driven
+    // rendering (container.innerHTML = items.map(...)), where the parser
+    // creates the elements and no setter ever runs. Rewriting the string
+    // before it is parsed avoids a failed request entirely.
+    ['innerHTML', 'outerHTML'].forEach(function (prop) {
+      var descriptor = Object.getOwnPropertyDescriptor(Element.prototype, prop);
+      if (!descriptor || !descriptor.set) return;
+      Object.defineProperty(Element.prototype, prop, {
+        configurable: true,
+        enumerable: descriptor.enumerable,
+        get: descriptor.get,
+        set: function (value) {
+          descriptor.set.call(this, FS.rewriteMarkup(String(value), BASE_DIR));
+        },
+      });
+    });
+
+    var nativeInsertAdjacentHTML = Element.prototype.insertAdjacentHTML;
+    Element.prototype.insertAdjacentHTML = function (position, markup) {
+      return nativeInsertAdjacentHTML.call(this, position, FS.rewriteMarkup(String(markup), BASE_DIR));
+    };
+
+    var nativeWrite = document.write;
+    document.write = function () {
+      var out = Array.prototype.map.call(arguments, function (chunk) {
+        return FS.rewriteMarkup(String(chunk), BASE_DIR);
+      });
+      return nativeWrite.apply(document, out);
+    };
+
+    // Safety net for paths none of the above cover (createElement +
+    // direct attribute mutation, framework-managed DOM, and so on).
+    // Already-swapped blob: URLs resolve to null on lookup, so this settles.
+    if (window.MutationObserver) {
+      var fixElement = function (el) {
+        if (!el || el.nodeType !== 1) return;
+        ['src', 'href', 'poster', 'data'].forEach(function (attr) {
+          var value = el.getAttribute && el.getAttribute(attr);
+          if (!value) return;
+          var swapped = swap(value);
+          if (swapped !== value) nativeSetAttribute.call(el, attr, swapped);
+        });
+        if (el.querySelectorAll) {
+          Array.prototype.forEach.call(el.querySelectorAll('[src],[href],[poster],[data]'), fixElement);
+        }
+      };
+      new MutationObserver(function (records) {
+        for (var r = 0; r < records.length; r++) {
+          var added = records[r].addedNodes;
+          for (var n = 0; n < added.length; n++) fixElement(added[n]);
+          if (records[r].type === 'attributes') fixElement(records[r].target);
+        }
+      }).observe(document.documentElement, {
+        childList: true, subtree: true,
+        attributes: true, attributeFilter: ['src', 'href', 'poster', 'data'],
+      });
+    }
+  }
+
+  // --- decode, decrypt, inflate, unpack ------------------------------------
+
+  function base64ToBytes(text) {
+    var binary = atob(String(text).replace(/-/g, '+').replace(/_/g, '/'));
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  // compressed bytes -> parsed manifest -> hand off to start()
+  function unpack(compressed) {
+    return new Response(
+      new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
+    )
+      .arrayBuffer()
+      .then(function (buffer) {
+        var raw = new Uint8Array(buffer);
+        var view = new DataView(buffer);
+
+        var magic = String.fromCharCode(raw[0], raw[1], raw[2], raw[3]);
+        if (magic !== 'SFB1') throw new Error('bad container magic: ' + magic);
+
+        var manifestLength = view.getUint32(4, true);
+        var manifestJson = new TextDecoder('utf-8').decode(raw.subarray(8, 8 + manifestLength));
+        var manifest = JSON.parse(manifestJson);
+        var dataStart = 8 + manifestLength;
+
+        start(manifest.map(function (item) {
+          return {
+            path: item.p,
+            bytes: raw.subarray(dataStart + item.o, dataStart + item.o + item.l),
+          };
+        }));
+      });
+  }
+
+  // Mirrors the CLI's --key handling exactly (same regex, same algorithm):
+  // a value shaped like a generated key (43-char base64url = 32 bytes) is
+  // used byte-for-byte; anything else is hashed into 32 bytes with
+  // SHA-256. Empty input is rejected outright with a clearer message
+  // rather than silently hashed into a key that could only ever fail.
+  var KEY_SHAPE_RE = /^[A-Za-z0-9_-]{43}$/;
+
+  function resolveKeyBytes(keyText) {
+    var trimmed = String(keyText).trim();
+    if (!trimmed) return Promise.reject(new Error('MALFORMED_KEY'));
+    if (KEY_SHAPE_RE.test(trimmed)) return Promise.resolve(base64ToBytes(trimmed));
+    return crypto.subtle
+      .digest('SHA-256', new TextEncoder().encode(trimmed))
+      .then(function (digest) { return new Uint8Array(digest); });
+  }
+
+  // Layout: iv(12) | ciphertext | authTag(16). WebCrypto wants the tag glued
+  // to the ciphertext, so everything past the IV is passed through as one.
+  function decrypt(packed, keyText) {
+    return resolveKeyBytes(keyText)
+      .then(function (keyBytes) {
+        return crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
+      })
+      .then(function (cryptoKey) {
+        return crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: packed.subarray(0, 12) },
+          cryptoKey,
+          packed.subarray(12)
+        );
+      })
+      .then(function (plaintext) { return new Uint8Array(plaintext); });
+  }
+
+  function showKeyForm(packed) {
+    var form = document.getElementById('sfb-keyform');
+    var input = document.getElementById('sfb-key');
+    var button = document.getElementById('sfb-unlock');
+    var error = document.getElementById('sfb-keyerror');
+
+    document.getElementById('sfb-loading').style.display = 'none';
+    form.style.display = 'flex';
+    input.focus();
+
+    function setError(message) {
+      error.textContent = message || '';
+      error.style.visibility = message ? 'visible' : 'hidden';
+      if (message) { input.select(); input.focus(); }
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (button.disabled) return;
+
+      setError('');
+      button.disabled = true;
+      input.disabled = true;
+      button.textContent = 'Decrypting…';
+
+      decrypt(packed, input.value)
+        .then(function (compressed) {
+          form.style.display = 'none';
+          document.getElementById('sfb-loading').style.display = 'flex';
+          return unpack(compressed);
+        })
+        .catch(function (e) {
+          button.disabled = false;
+          input.disabled = false;
+          button.textContent = 'Unlock';
+          // GCM tag mismatch throws a bare OperationError with no message,
+          // which is exactly the wrong-key case.
+          setError(
+            e && e.message === 'MALFORMED_KEY'
+              ? 'Enter a key.'
+              : 'Incorrect key.'
+          );
+        });
+    });
+  }
+
+  (function boot() {
+    var packed;
+    try {
+      packed = base64ToBytes(PAYLOAD_B64);
+    } catch (e) {
+      return fail('The embedded payload is corrupt.', e.message);
+    }
+
+    if (typeof DecompressionStream === 'undefined') {
+      return fail(
+        'This browser lacks DecompressionStream, which the bundle needs to unpack itself.',
+        'Requires Chrome/Edge 80+, Safari 16.4+, or Firefox 113+.'
+      );
+    }
+
+    if (!ENCRYPTED) {
+      return unpack(packed).catch(function (e) {
+        fail('Could not unpack the bundle.', e && e.message);
+      });
+    }
+
+    // crypto.subtle exists only in a secure context: https, localhost, or
+    // file. Plain http on a LAN address will not have it.
+    if (!window.crypto || !window.crypto.subtle) {
+      return fail(
+        'This bundle is encrypted, but the browser will not expose the Web Crypto API here.',
+        'crypto.subtle requires a secure context. Serve the file over https://, ' +
+        'or open it from http://localhost or file://.'
+      );
+    }
+
+    // A link can carry the key in its fragment (#key=...) so opening it
+    // unlocks immediately, no typing. Fragments never reach a server --
+    // not in the request, not in access logs, not to a CDN -- unlike a
+    // query string, which is why this reads location.hash and not
+    // location.search.
+    var hashKey = null;
+    try {
+      hashKey = new URLSearchParams(location.hash.replace(/^#/, '')).get('key');
+    } catch (e) { /* malformed fragment: fall through to the form */ }
+
+    if (hashKey) {
+      return decrypt(packed, hashKey)
+        .then(function (compressed) {
+          // Drop the key from the visible URL/history now that it has
+          // done its job.
+          try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+          return unpack(compressed).catch(function (e) {
+            fail('Could not unpack the bundle.', e && e.message);
+          });
+        })
+        .catch(function () {
+          // Wrong or unusable key in the link: fall back to asking, same
+          // as if the fragment had never been there.
+          showKeyForm(packed);
+        });
+    }
+
+    showKeyForm(packed);
+  })();
+})("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", "index.html", true);
+</script>
+</body>
+</html>
